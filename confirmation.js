@@ -91,16 +91,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ticket-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}&color=000000&bgcolor=ffffff`;
 
     // Populate add-ons
+    // Populate add-ons
     const addonsListEl = document.getElementById('addons-list');
+    const addonsSection = document.getElementById('addons-section');
+
     if (bookingData.addons && bookingData.addons.length > 0) {
+        addonsSection.style.display = 'block';
         addonsListEl.innerHTML = bookingData.addons.map(addon => `
-            <div class="flex justify-between items-center text-sm">
-                <span class="text-gray-300">${addon.icon} ${addon.name}</span>
-                <span class="text-tech-gold">NT$ ${addon.price.toLocaleString()}</span>
+            <div class="flex justify-between items-center text-sm py-2 border-b border-white/5 last:border-0">
+                <div class="flex items-center space-x-3">
+                    <span class="text-xl">${addon.icon || '➕'}</span>
+                    <span class="text-gray-300">${addon.name}</span>
+                </div>
+                <span class="text-tech-gold font-mono">NT$ ${addon.price.toLocaleString()}</span>
             </div>
         `).join('');
     } else {
-        document.getElementById('addons-section').style.display = 'none';
+        if (addonsSection) addonsSection.style.display = 'none';
     }
 
     // Populate price breakdown

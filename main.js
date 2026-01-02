@@ -25,7 +25,13 @@ const prices = {
     addons: {
         food: { 'none': { name: '不需餐點', price: 0 }, 'beef-noodle': { name: '夯實紅燒牛肉麵', price: 380 }, 'chicken-rice': { name: '夯實海南雞飯', price: 320 } },
         drink: { 'none': { name: '不需飲料', price: 0 }, 'water': { name: '夯實礦泉水', price: 50 }, 'tea': { name: '阿里山高山青茶', price: 120 } },
-        essentials: { 'blanket': { name: '舒適毛毯', price: 150 }, 'insurance': { name: '航程防撞保險', price: 1200 } }
+        essentials: {
+            'blanket': { name: '舒適毛毯', price: 150 },
+            'urine-bag': { name: '應急尿袋', price: 50 },
+            'vomit-bag': { name: '嘔吐袋', price: 30 },
+            'feces-bag': { name: '強效屎袋', price: 80 },
+            'insurance': { name: '航程防撞保險', price: 1200 }
+        }
     }
 };
 
@@ -187,20 +193,36 @@ function initBookingPage() {
 
     // 5. Connect Finish Outbound Button
     document.getElementById('btn-finish-outbound')?.addEventListener('click', () => {
-        console.log("[Flow] Finish Outbound button clicked");
-        if (!bookingState.outbound.flight) return alert('請選擇去程航班');
-        // Validate seats
+        console.log("[Flow] Finish Button Clicked. Current Outbound Flight:", bookingState.outbound.flight);
+
+        if (!bookingState.outbound.flight) {
+            alert('請先選擇去程航班');
+            document.getElementById('outbound-container')?.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
         const needed = bookingState.outbound.passengers;
         const current = bookingState.outbound.seats.length;
         if (bookingState.outbound.cabin !== 'hangshi-stand' && current !== needed) {
-            return alert(`請為所有乘客 (${needed} 位) 選位`);
+            return alert(`請為所有乘客 (${needed} 位) 完成選座`);
         }
 
         if (bookingState.tripType === 'round-trip') {
-            document.getElementById('inbound-phase')?.classList.remove('hidden');
-            const di = document.getElementById('date-inbound');
-            if (di && !di.value && di._flatpickr) di._flatpickr.open();
-            document.getElementById('inbound-phase')?.scrollIntoView({ behavior: 'smooth' });
+            const inPhase = document.getElementById('inbound-phase');
+            if (inPhase) {
+                inPhase.classList.remove('hidden');
+                document.getElementById('inbound-container')?.classList.remove('hidden');
+
+                // Auto trigger inbound rendering if date exists
+                const di = document.getElementById('date-inbound');
+                if (di && di.value) {
+                    updateUI();
+                } else if (di && di._flatpickr) {
+                    di._flatpickr.open();
+                }
+
+                setTimeout(() => inPhase.scrollIntoView({ behavior: 'smooth' }), 100);
+            }
         } else {
             document.querySelector('.sticky-invoice')?.scrollIntoView({ behavior: 'smooth' });
         }
@@ -227,7 +249,65 @@ function initBookingPage() {
             totalAmount: parseInt(document.getElementById('total-price').innerText.replace(/[^\d]/g, '') || "0"),
             tripType: bookingState.tripType,
             outbound: bookingState.outbound,
-            inbound: bookingState.tripType === 'round-trip' ? bookingState.inbound : null
+            inbound: bookingState.tripType === 'round-trip' ? bookingState.inbound : null,
+            addons: [] // Populated below
+        };
+
+        // Collect Addons for Confirmation Page Display
+        let collectedAddons = [];
+
+        const collectPhaseAddons = (phase) => {
+            if (!bookingState[phase].flight) return;
+            const container = document.getElementById(`passenger-details-container-${phase}`);
+            if (!container) return;
+
+            // Food
+            container.querySelectorAll('.p-addon-food').forEach(sel => {
+                const val = sel.value;
+                if (val !== 'none' && prices.addons.food[val]) {
+                    collectedAddons.push({
+                        name: `${prices.addons.food[val].name} (${phase === 'outbound' ? '去程' : '回程'})`,
+                        price: prices.addons.food[val].price,
+                        icon: '🍜'
+                    });
+                }
+            });
+
+            // Drink
+            container.querySelectorAll('.p-addon-drink').forEach(sel => {
+                const val = sel.value;
+                if (val !== 'none' && prices.addons.drink[val]) {
+                    collectedAddons.push({
+                        name: `${prices.addons.drink[val].name} (${phase === 'outbound' ? '去程' : '回程'})`,
+                        price: prices.addons.drink[val].price,
+                        icon: '🥤'
+                    });
+                }
+            });
+
+            // Essentials
+            container.querySelectorAll('.p-addon-essential:checked').forEach(cb => {
+                const val = cb.value;
+                if (prices.addons.essentials[val]) {
+                    collectedAddons.push({
+                        name: `${prices.addons.essentials[val].name} (${phase === 'outbound' ? '去程' : '回程'})`,
+                        price: prices.addons.essentials[val].price,
+                        icon: '🛡️'
+                    });
+                }
+            });
+        };
+
+        collectPhaseAddons('outbound');
+        if (bookingState.tripType === 'round-trip') collectPhaseAddons('inbound');
+
+        finalData.addons = collectedAddons;
+
+        // Also add breakdown for confirmation page
+        finalData.priceBreakdown = {
+            baseFare: finalData.totalAmount - (Math.round(finalData.totalAmount / 1.05 * 0.05)), // Approx reverse
+            addonsCost: collectedAddons.reduce((sum, item) => sum + item.price, 0),
+            tax: Math.round(finalData.totalAmount / 1.05 * 0.05)
         };
 
         sessionStorage.setItem('bookingData', JSON.stringify(finalData));
@@ -345,22 +425,128 @@ function renderPhaseDetails(phase) {
 
     for (let i = 1; i <= count; i++) {
         const div = document.createElement('div');
-        div.className = 'p-4 border border-white/10 rounded mb-4 bg-white/5';
+        div.className = 'p-5 border border-white/10 rounded-xl mb-4 bg-white/5 backdrop-blur-sm';
         div.innerHTML = `
-            <div class="text-xs text-gray-400 mb-2">乘客 ${i} (${phase === 'outbound' ? '去程' : '回程'})</div>
-            <div class="grid grid-cols-2 gap-4">
-               <div><label class="text-[10px] text-gray-500">體重 (KG)</label><input type="number" class="w-full bg-black/50 border border-white/20 text-white text-xs p-2 rounded p-weight" value="70"></div>
-               <div><label class="text-[10px] text-gray-500">行李 (KG)</label><input type="number" class="w-full bg-black/50 border border-white/20 text-white text-xs p-2 rounded p-luggage" value="10"></div>
+            <div class="text-xs text-gray-400 mb-4 flex justify-between items-center">
+                <span class="font-bold uppercase tracking-widest text-[#D4AF37]">乘客 ${i} (${phase === 'outbound' ? '去程' : '回程'})</span>
+            </div>
+            <div class="space-y-6">
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+                        <span>體重 (Weight)</span>
+                        <span class="text-tech-gold font-mono text-xs"><span class="w-val">70</span> KG</span>
+                    </div>
+                    <input type="range" min="30" max="150" value="70" class="w-full p-weight accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+                        <span>行李 (Luggage)</span>
+                        <span class="text-tech-gold font-mono text-xs"><span class="l-val">10</span> KG</span>
+                    </div>
+                    <input type="range" min="0" max="50" value="10" class="w-full p-luggage accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
+                </div>
+            </div>
+            
+            <!-- Add-ons Section (Hybrid) -->
+            <div class="mt-4 pt-4 border-t border-white/10 space-y-4">
+                <div class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">加購服務 (Add-ons)</div>
+                
+                <!-- Food & Drink Dropdowns -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[9px] text-gray-400 block">餐點 (Food)</label>
+                        <select class="p-addon-food w-full bg-black/40 border border-white/10 text-white text-[10px] p-2 rounded focus:border-tech-gold appearance-none">
+                            <option value="none">不需餐點</option>
+                            <option value="beef-noodle">夯實紅燒牛肉麵 (NT$380)</option>
+                            <option value="chicken-rice">夯實海南雞飯 (NT$320)</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] text-gray-400 block">飲料 (Drink)</label>
+                        <select class="p-addon-drink w-full bg-black/40 border border-white/10 text-white text-[10px] p-2 rounded focus:border-tech-gold appearance-none">
+                            <option value="none">不需飲料</option>
+                            <option value="water">夯實礦泉水 (NT$50)</option>
+                            <option value="tea">阿里山高山青茶 (NT$120)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Essentials Grid (Interactive Blocks) -->
+                <div>
+                    <label class="text-[9px] text-gray-400 block mb-2">機上必備 (Essentials)</label>
+                    <div class="hidden">
+                        <input type="checkbox" class="p-addon-essential" value="blanket" data-passenger="${i}">
+                        <input type="checkbox" class="p-addon-essential" value="urine-bag" data-passenger="${i}">
+                        <input type="checkbox" class="p-addon-essential" value="vomit-bag" data-passenger="${i}">
+                        <input type="checkbox" class="p-addon-essential" value="feces-bag" data-passenger="${i}">
+                        <input type="checkbox" class="p-addon-essential" value="insurance" data-passenger="${i}">
+                    </div>
+                    <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                         ${[
+                { val: 'blanket', name: '毛毯', price: 150, icon: '🧣' },
+                { val: 'urine-bag', name: '尿袋', price: 50, icon: '🚽' },
+                { val: 'vomit-bag', name: '嘔吐袋', price: 30, icon: '🤮' },
+                { val: 'feces-bag', name: '屎袋', price: 80, icon: '💩' },
+                { val: 'insurance', name: '保險', price: 1200, icon: '🛡️' }
+            ].map(item => `
+                            <div class="addon-card group relative h-20 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 hover:border-tech-gold/50 transition-all flex flex-col items-center justify-center gap-1 select-none"
+                                 data-type="essential" data-val="${item.val}">
+                                <div class="text-xl filter drop-shadow-lg group-hover:scale-110 transition-transform">${item.icon}</div>
+                                <div class="text-[9px] text-gray-300 font-bold">${item.name}</div>
+                                <div class="text-[8px] text-tech-gold">NT$${item.price}</div>
+                                <div class="absolute inset-0 border-2 border-tech-gold rounded-lg opacity-0 scale-95 transition-all indicator"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
             </div>
         `;
-        div.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateInvoice));
+
+        const wInp = div.querySelector('.p-weight');
+        const lInp = div.querySelector('.p-luggage');
+        const wVal = div.querySelector('.w-val');
+        const lVal = div.querySelector('.l-val');
+
+        wInp.oninput = () => { wVal.innerText = wInp.value; updateInvoice(); };
+        lInp.oninput = () => { lVal.innerText = lInp.value; updateInvoice(); };
+
+        // Bind Essentials Grid Logic
+        const hiddenEssentials = div.querySelectorAll('.p-addon-essential');
+
+        div.querySelectorAll('.addon-card').forEach(card => {
+            card.onclick = () => {
+                const val = card.dataset.val;
+
+                // Toggle Logic for Essentials (Checkbox)
+                const cb = Array.from(hiddenEssentials).find(c => c.value === val);
+                if (cb) {
+                    cb.checked = !cb.checked;
+                    if (cb.checked) {
+                        card.classList.add('active-card');
+                        card.querySelector('.indicator').classList.remove('opacity-0', 'scale-95');
+                        card.querySelector('.indicator').classList.add('opacity-100', 'scale-100');
+                    } else {
+                        card.classList.remove('active-card');
+                        card.querySelector('.indicator').classList.remove('opacity-100', 'scale-100');
+                        card.querySelector('.indicator').classList.add('opacity-0', 'scale-95');
+                    }
+                }
+                updateInvoice();
+            };
+        });
+
+        // Bind Dropdown Logic
+        div.querySelectorAll('select').forEach(el => {
+            el.addEventListener('change', updateInvoice);
+        });
+
         container.appendChild(div);
     }
 }
 
 function updateUI() {
-    const origin = document.getElementById('origin')?.value;
-    const dest = document.getElementById('destination')?.value;
+    const origin = document.getElementById('origin')?.value?.toLowerCase();
+    const dest = document.getElementById('destination')?.value?.toLowerCase();
     const dateOut = document.getElementById('date-outbound')?.value;
 
     console.log("[UpdateUI] state:", { origin, dest, dateOut, type: bookingState.tripType });
@@ -372,9 +558,9 @@ function updateUI() {
 
     if (bookingState.tripType === 'round-trip') {
         const inPhase = document.getElementById('inbound-phase');
+        document.getElementById('btn-finish-outbound')?.classList.remove('hidden'); // Show for Round Trip
         if (inPhase) {
             inPhase.classList.remove('hidden');
-            // Ensure child container is shown if date selected
             const dateIn = document.getElementById('date-inbound')?.value;
             if (dateIn) {
                 document.getElementById('inbound-container')?.classList.remove('hidden');
@@ -383,38 +569,64 @@ function updateUI() {
         }
     } else {
         document.getElementById('inbound-phase')?.classList.add('hidden');
+        document.getElementById('btn-finish-outbound')?.classList.add('hidden'); // Hide for One Way
     }
 
-    renderMap();
+    if (!window.mapLoopStarted) {
+        window.mapLoopStarted = true;
+        const animate = () => {
+            renderMap();
+            requestAnimationFrame(animate);
+        };
+        animate();
+    }
 }
 
 function renderMap() {
     const canvas = document.getElementById('space-map');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const origin = document.getElementById('origin')?.value;
-    const dest = document.getElementById('destination')?.value;
+    const origin = document.getElementById('origin')?.value?.toLowerCase();
+    const dest = document.getElementById('destination')?.value?.toLowerCase();
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const time = Date.now() * 0.002;
+
+    // Background Map Stars
+    ctx.fillStyle = '#ffffff15';
+    for (let i = 0; i < 60; i++) {
+        const x = (Math.sin(i * 456.78) * 0.5 + 0.5) * canvas.width;
+        const y = (Math.cos(i * 123.45) * 0.5 + 0.5) * canvas.height;
+        ctx.beginPath(); ctx.arc(x, y, 0.8, 0, Math.PI * 2); ctx.fill();
+    }
+
+
 
     // Points
     Object.entries(locations).forEach(([k, loc]) => {
+        const isSelected = (k === origin || k === dest);
+
+        if (isSelected) {
+            const pulse = Math.sin(time * 3) * 3 + 6;
+            const grad = ctx.createRadialGradient(loc.x, loc.y, 0, loc.x, loc.y, pulse * 2);
+            grad.addColorStop(0, '#D4AF3733');
+            grad.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(loc.x, loc.y, pulse * 2, 0, Math.PI * 2); ctx.fill();
+        }
+
         ctx.beginPath();
-        ctx.arc(loc.x, loc.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = (k === origin || k === dest) ? '#D4AF37' : '#ffffff22';
+        ctx.arc(loc.x, loc.y, isSelected ? 4 : 2, 0, Math.PI * 2);
+        ctx.fillStyle = isSelected ? '#D4AF37' : '#ffffff22';
         ctx.fill();
 
-        if (k === origin || k === dest) {
-            ctx.shadowBlur = 10;
+        if (isSelected) {
+            ctx.shadowBlur = 15;
             ctx.shadowColor = '#D4AF37';
-            ctx.beginPath();
-            ctx.arc(loc.x, loc.y, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
             ctx.fillStyle = '#fff';
-            ctx.font = '10px Montserrat';
-            ctx.fillText(loc.name.split(' ')[0], loc.x + 10, loc.y + 5);
+            ctx.font = '700 12px Montserrat';
+            ctx.fillText(loc.name.split(' ')[0], loc.x + 12, loc.y + 5);
+            ctx.shadowBlur = 0;
         }
     });
 
@@ -422,12 +634,21 @@ function renderMap() {
         const o = locations[origin];
         const d = locations[dest];
 
+        // Animated line
         ctx.beginPath();
         ctx.moveTo(o.x, o.y);
         ctx.lineTo(d.x, d.y);
-        ctx.strokeStyle = '#D4AF3788';
+        ctx.strokeStyle = '#D4AF3744';
         ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(o.x, o.y);
+        ctx.lineTo(d.x, d.y);
+        ctx.strokeStyle = '#D4AF37';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 20]);
+        ctx.lineDashOffset = -time * 20;
         ctx.stroke();
         ctx.setLineDash([]);
 
@@ -450,73 +671,186 @@ function renderSeatMap(phase) {
 
     container.innerHTML = '';
     if (cabin === 'hangshi-stand') {
-        container.innerHTML = '<div class="text-xs text-gray-500">此艙等不需選位</div>';
+        container.innerHTML = '<div class="text-xs text-gray-500 py-10">此艙等不需選位 (體積計費)</div>';
         return;
     }
 
+    const maxSeats = cabin === 'comfort-stand' ? 50 : 20;
     const grid = document.createElement('div');
-    grid.className = 'grid grid-cols-5 gap-2 max-w-[300px] mx-auto';
-    for (let i = 1; i <= 20; i++) {
-        const seatId = `S${i}`;
-        const isSelected = bookingState[phase].seats.includes(seatId);
+    // 5 columns: [Seat][Seat][Aisle][Seat][Seat]
+    grid.className = 'grid grid-cols-5 gap-2 max-w-[320px] mx-auto';
+
+    let seatNum = 1;
+    let itemsCount = 0;
+
+    while (seatNum <= maxSeats) {
+        itemsCount++;
+        // Every 3rd item in a 5-column row is the aisle
+        if (itemsCount % 5 === 3) {
+            const aisle = document.createElement('div');
+            aisle.className = 'h-8 flex items-center justify-center text-[8px] text-white/20 font-bold tracking-tighter uppercase';
+            aisle.innerText = 'AISLE';
+            grid.appendChild(aisle);
+            continue;
+        }
+
+        const currentSeatId = `S${seatNum}`;
+        const isSelected = bookingState[phase].seats.includes(currentSeatId);
         const cell = document.createElement('div');
-        cell.className = `h-8 rounded flex items-center justify-center text-xs cursor-pointer ${isSelected ? 'bg-tech-gold text-black' : 'bg-white/10 text-gray-400 hover:bg-white/20'}`;
-        cell.innerText = seatId;
+        cell.className = `h-8 rounded flex items-center justify-center text-[10px] font-bold cursor-pointer transition-all ${isSelected ? 'bg-tech-gold text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]' : 'bg-white/5 text-gray-500 hover:bg-white/10 border border-white/5'}`;
+        cell.innerText = currentSeatId;
+
         cell.onclick = () => {
             const s = bookingState[phase].seats;
-            if (s.includes(seatId)) bookingState[phase].seats = s.filter(x => x !== seatId);
-            else {
-                if (s.length < count) bookingState[phase].seats.push(seatId);
-                else { s.shift(); s.push(seatId); }
+            if (s.includes(currentSeatId)) {
+                bookingState[phase].seats = s.filter(x => x !== currentSeatId);
+            } else {
+                if (s.length < count) {
+                    bookingState[phase].seats.push(currentSeatId);
+                } else {
+                    // Shift out the first and add new (auto-replace)
+                    bookingState[phase].seats.shift();
+                    bookingState[phase].seats.push(currentSeatId);
+                }
             }
             renderSeatMap(phase);
+            updateInvoice();
         };
         grid.appendChild(cell);
+        seatNum++;
     }
+
     container.appendChild(grid);
 }
 
 function updateInvoice() {
     let total = 0;
+    let detailsHTML = '';
+    const invoiceContent = document.getElementById('invoice-content');
 
     // Base Price Calculation
     const calcPhase = (phase) => {
         if (!bookingState[phase].flight) return;
 
+        const pName = phase === 'outbound' ? '去程' : '回程';
+
         // Base Flight Cost (Approx based on distance/mock)
         let baseFlightPrice = 12500;
 
         // Cabin Multiplier
-        const cabinMult = prices.cabinMultipliers[bookingState[phase].cabin] || 1;
+        const cabinType = bookingState[phase].cabin;
+        const cabinMult = prices.cabinMultipliers[cabinType] || 1;
+        const cabinLabel = cabinType === 'comfort-stand' ? '舒適站票' : (cabinType === 'hangshi-stand' ? '夯實站票' : '標準坐票');
 
         // Pax Count
         const pax = bookingState[phase].passengers;
 
-        let phaseTotal = baseFlightPrice * cabinMult * pax;
+        let flightCost = baseFlightPrice * cabinMult * pax;
+
+        detailsHTML += `
+            <div class="border-b border-white/5 pb-4 mb-4">
+                <div class="flex justify-between text-white font-bold mb-2">
+                    <span class="text-tech-gold">${pName} 航班 (${bookingState[phase].flight.id})</span>
+                    <span>NT$ ${flightCost.toLocaleString()}</span>
+                </div>
+                <div class="flex justify-between text-gray-500 pl-2 text-[10px] uppercase tracking-wider mb-2">
+                    <span>${cabinLabel} x ${pax} 人</span>
+                    <span>基礎票價</span>
+                </div>
+
+                <!-- Weight & Luggage -->
+        `;
+
+        let weightTotal = 0;
+        let bodyTotal = 0;
+        let luggageTotal = 0;
 
         // Weight Costs (Body + Luggage)
         document.querySelectorAll(`#passenger-details-container-${phase} input.p-weight`).forEach(i => {
             const w = parseInt(i.value) || 0;
-            phaseTotal += w * prices.weightRate_Body;
+            bodyTotal += w * prices.weightRate_Body;
         });
 
         document.querySelectorAll(`#passenger-details-container-${phase} input.p-luggage`).forEach(i => {
             const w = parseInt(i.value) || 0;
-            phaseTotal += w * prices.weightRate_Luggage;
+            luggageTotal += w * prices.weightRate_Luggage;
         });
 
-        total += phaseTotal;
+        weightTotal = bodyTotal + luggageTotal;
+
+        // Add-ons Calculation
+        let addonsTotal = 0;
+        let addonItems = [];
+
+        // Food
+        document.querySelectorAll(`#passenger-details-container-${phase} select.p-addon-food`).forEach(s => {
+            if (prices.addons.food[s.value]) {
+                addonsTotal += prices.addons.food[s.value].price;
+                if (s.value !== 'none') addonItems.push(prices.addons.food[s.value].name);
+            }
+        });
+        // Drink
+        document.querySelectorAll(`#passenger-details-container-${phase} select.p-addon-drink`).forEach(s => {
+            if (prices.addons.drink[s.value]) {
+                addonsTotal += prices.addons.drink[s.value].price;
+                if (s.value !== 'none') addonItems.push(prices.addons.drink[s.value].name);
+            }
+        });
+        // Essentials
+        document.querySelectorAll(`#passenger-details-container-${phase} input.p-addon-essential:checked`).forEach(c => {
+            if (prices.addons.essentials[c.value]) {
+                addonsTotal += prices.addons.essentials[c.value].price;
+                addonItems.push(prices.addons.essentials[c.value].name);
+            }
+        });
+
+        if (weightTotal > 0 || addonsTotal > 0) {
+            detailsHTML += `
+                <div class="space-y-1 pl-2 border-l border-white/10 ml-1">
+            `;
+
+            if (weightTotal > 0) {
+                detailsHTML += `
+                    <div class="flex justify-between text-gray-400">
+                        <span>體重/行李附加費</span>
+                        <span>+ NT$ ${weightTotal.toLocaleString()}</span>
+                    </div>`;
+            }
+
+            if (addonsTotal > 0) {
+                detailsHTML += `
+                    <div class="flex justify-between text-tech-gold">
+                        <span>加購項目 (${addonItems.length})</span>
+                        <span>+ NT$ ${addonsTotal.toLocaleString()}</span>
+                    </div>
+                     <div class="text-[9px] text-gray-500 leading-tight">${addonItems.join(', ')}</div>
+                `;
+            }
+
+            detailsHTML += `</div>`;
+        }
+
+        detailsHTML += `</div>`;
+        total += flightCost + weightTotal + addonsTotal;
     };
 
     calcPhase('outbound');
     if (bookingState.tripType === 'round-trip') calcPhase('inbound');
 
+    if (invoiceContent) {
+        invoiceContent.innerHTML = detailsHTML || '<div class="text-center py-10 opacity-30 text-xs tracking-widest uppercase">等待航程配置...</div>';
+    }
+
     const tax = Math.round(total * 0.05);
     const final = total + tax;
 
     document.getElementById('invoice-total').innerText = `NT$ ${final.toLocaleString()}`;
-    document.getElementById('tax-amount').innerText = `NT$ ${tax.toLocaleString()}`;
-    document.getElementById('total-price').innerText = `NT$ ${final.toLocaleString()}`;
+    const taxEl = document.getElementById('tax-amount');
+    if (taxEl) taxEl.innerText = `NT$ ${tax.toLocaleString()}`;
+
+    // Also update mobile total
+    const mobTotal = document.getElementById('total-price');
+    if (mobTotal) mobTotal.innerText = `NT$ ${final.toLocaleString()}`;
 
     // Update Button State
     const btnParams = {
