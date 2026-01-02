@@ -113,24 +113,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // Populate price breakdown
     const priceBreakdownEl = document.getElementById('price-breakdown');
     const breakdown = bookingData.priceBreakdown || {};
+    // Fallback if breakdown is missing (legacy data)
+    if (!breakdown.baseFare && bookingData.totalAmount) {
+        breakdown.baseFare = bookingData.totalAmount;
+    }
 
     const breakdownItems = [
-        { label: '基本票價', value: breakdown.baseFare || 0 },
-        { label: '乘客載重費', value: breakdown.passengerWeight || 0 },
-        { label: '行李載重費', value: breakdown.luggageWeight || 0 },
-        { label: '體積費用', value: breakdown.volumeFee || 0 },
-        { label: '加購服務', value: breakdown.addonsCost || 0 },
-        { label: '稅金 (5%)', value: breakdown.tax || 0 }
+        { label: '基本票價 (Base Fare)', value: breakdown.baseFare || 0 },
+        { label: '乘客載重附加費 (Passenger Weight)', value: breakdown.passengerWeight || 0 },
+        { label: '行李託運附加費 (Luggage Weight)', value: breakdown.luggageWeight || 0 },
+        { label: '加購服務總計 (Add-ons)', value: breakdown.addonsCost || 0 },
+        { label: '稅金 (Tax 5%)', value: breakdown.tax || 0 },
+        { label: '總金額 (Total)', value: (bookingData.totalAmount || 0), isTotal: true }
     ];
 
-    priceBreakdownEl.innerHTML = breakdownItems
-        .filter(item => item.value > 0)
-        .map(item => `
-            <div class="flex justify-between items-center text-sm">
-                <span class="text-gray-400">${item.label}</span>
-                <span class="text-white">NT$ ${item.value.toLocaleString()}</span>
-            </div>
-        `).join('');
+    priceBreakdownEl.innerHTML = `
+        ${breakdownItems.map(item => {
+        const isTotal = item.isTotal;
+        return `
+            <div class="flex justify-between items-center text-sm ${isTotal ? 'pt-4 mt-2 border-t border-white/20 font-bold text-lg' : 'mb-1'}">
+                <span class="${isTotal ? 'text-white' : 'text-gray-400'}">${item.label}</span>
+                <span class="${isTotal ? 'text-tech-gold' : 'text-white'}">NT$ ${item.value.toLocaleString()}</span>
+            </div>`;
+    }).join('')}
+        
+        <!-- Refund Policy Note -->
+        <div class="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xs text-red-400">
+            <span>退票手續費 (Refund Fee / Non-refundable)</span>
+            <span>NT$ ${(breakdown.refundFee || 3000).toLocaleString()}</span>
+        </div>
+    `;
 
     // Set total amount
     document.getElementById('total-amount').textContent = `NT$ ${(bookingData.totalAmount || 0).toLocaleString()}`;

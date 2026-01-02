@@ -1,19 +1,29 @@
 import './style.css'
 import { gsap } from 'gsap'
 
+const bgMap = new Image();
+bgMap.src = 'world-map.png';
+
 // --- Data & Config ---
 const locations = {
-    osa: { name: '大阪關西 (KIX)', x: 690, y: 175, color: '#ffaaaa' },
-    fuk: { name: '福岡 (FUK)', x: 680, y: 180, color: '#ffbbbb' },
-    cts: { name: '札幌新千歲 (CTS)', x: 710, y: 155, color: '#eeeeff' },
-    oka: { name: '沖繩那霸 (OKA)', x: 670, y: 190, color: '#44aaff' },
-    tpe: { name: '台北桃園 (TPE)', x: 675, y: 185, color: '#4a9eff' },
-    nrt: { name: '東京成田 (NRT)', x: 705, y: 168, color: '#ffffff' },
-    hnd: { name: '東京羽田 (HND)', x: 702, y: 170, color: '#ffffff' },
-    kix: { name: '大阪 (KIX)', x: 690, y: 175, color: '#ffaaaa' },
-    icn: { name: '首爾仁川 (ICN)', x: 685, y: 170, color: '#ff4444' },
-    cdg: { name: '巴黎戴高樂 (CDG)', x: 400, y: 155, color: '#ff8800' },
-    jfk: { name: '紐約甘迺迪 (JFK)', x: 230, y: 175, color: '#ff6b4a' }
+    // Japan
+    nrt: { name: '東京成田 (NRT)', x: 730, y: 220, color: '#ffffff' },
+    hnd: { name: '東京羽田 (HND)', x: 725, y: 225, color: '#ffffff' },
+    kix: { name: '大阪關西 (KIX)', x: 710, y: 235, color: '#ffaaaa' },
+    osa: { name: '大阪伊丹 (ITM)', x: 708, y: 235, color: '#ffaaaa' },
+    fuk: { name: '福岡 (FUK)', x: 695, y: 245, color: '#ffbbbb' },
+    cts: { name: '札幌新千歲 (CTS)', x: 740, y: 180, color: '#eeeeff' },
+    oka: { name: '沖繩那霸 (OKA)', x: 690, y: 265, color: '#44aaff' },
+
+    // Taiwan
+    tpe: { name: '台北桃園 (TPE)', x: 675, y: 275, color: '#4a9eff' },
+
+    // Korea
+    icn: { name: '首爾仁川 (ICN)', x: 685, y: 225, color: '#ff4444' },
+
+    // Long Haul
+    cdg: { name: '巴黎戴高樂 (CDG)', x: 410, y: 190, color: '#ff8800' },
+    jfk: { name: '紐約甘迺迪 (JFK)', x: 220, y: 210, color: '#ff6b4a' }
 };
 
 const prices = {
@@ -303,12 +313,38 @@ function initBookingPage() {
 
         finalData.addons = collectedAddons;
 
+        // Calculate detailed breakdown
+        const basePrice = (finalData.distance * prices.basePerKm) * prices.cabinMultipliers[bookingState.outbound.cabin] * finalData.passengerCount;
+
+        let weightCost = 0;
+        let luggageCost = 0;
+
+        // Iterate outbound passengers to get accurate weight costs
+        // Note: For simplicity, we are retrieving current values from DOM or state IF available, 
+        // but seeing as state only stores seats/flight, we might need to grab them from DOM
+        document.querySelectorAll('#passenger-details-container-outbound .p-weight').forEach(el => {
+            weightCost += (parseInt(el.value) - 60) * prices.weightRate_Body; // Assuming 60kg free
+        });
+        if (weightCost < 0) weightCost = 0;
+
+        document.querySelectorAll('#passenger-details-container-outbound .p-luggage').forEach(el => {
+            luggageCost += parseInt(el.value) * prices.weightRate_Luggage;
+        });
+
+        const addonsCost = collectedAddons.reduce((sum, item) => sum + item.price, 0);
+        const subtotal = basePrice + weightCost + luggageCost + addonsCost;
+        const tax = Math.round(subtotal * 0.05);
+
         // Also add breakdown for confirmation page
         finalData.priceBreakdown = {
-            baseFare: finalData.totalAmount - (Math.round(finalData.totalAmount / 1.05 * 0.05)), // Approx reverse
-            addonsCost: collectedAddons.reduce((sum, item) => sum + item.price, 0),
-            tax: Math.round(finalData.totalAmount / 1.05 * 0.05)
+            baseFare: Math.round(basePrice),
+            passengerWeight: Math.round(weightCost),
+            luggageWeight: Math.round(luggageCost),
+            addonsCost: addonsCost,
+            tax: tax,
+            refundFee: 3000 // Fixed fee
         };
+        finalData.totalAmount = subtotal + tax; // Recalculate to be precise
 
         sessionStorage.setItem('bookingData', JSON.stringify(finalData));
         window.location.href = 'confirmation.html';
@@ -592,8 +628,22 @@ function renderMap() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const time = Date.now() * 0.002;
 
-    // Background Map Stars
-    ctx.fillStyle = '#ffffff15';
+    // Draw World Map Image
+    if (bgMap.complete && bgMap.naturalWidth > 0) {
+        ctx.globalAlpha = 0.8; // Slightly dim the map for better text contrast
+        ctx.drawImage(bgMap, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+    } else {
+        // Fallback if loading
+        ctx.fillStyle = '#0d1117';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#ffffff05';
+        for (let i = 0; i < canvas.width; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
+        for (let i = 0; i < canvas.height; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke(); }
+    }
+
+    // Stars
+    ctx.fillStyle = '#ffffff20';
     for (let i = 0; i < 60; i++) {
         const x = (Math.sin(i * 456.78) * 0.5 + 0.5) * canvas.width;
         const y = (Math.cos(i * 123.45) * 0.5 + 0.5) * canvas.height;
@@ -616,8 +666,8 @@ function renderMap() {
         }
 
         ctx.beginPath();
-        ctx.arc(loc.x, loc.y, isSelected ? 4 : 2, 0, Math.PI * 2);
-        ctx.fillStyle = isSelected ? '#D4AF37' : '#ffffff22';
+        ctx.arc(loc.x, loc.y, isSelected ? 8 : 3, 0, Math.PI * 2);
+        ctx.fillStyle = isSelected ? '#D4AF37' : '#ffffff44';
         ctx.fill();
 
         if (isSelected) {
@@ -634,25 +684,34 @@ function renderMap() {
         const o = locations[origin];
         const d = locations[dest];
 
-        // Animated line
+        // Animated line - Base
         ctx.beginPath();
         ctx.moveTo(o.x, o.y);
         ctx.lineTo(d.x, d.y);
-        ctx.strokeStyle = '#D4AF3744';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#D4AF3766'; // 40% opacity
+        ctx.lineWidth = 4;
         ctx.stroke();
 
+        // Inner highlight
         ctx.beginPath();
         ctx.moveTo(o.x, o.y);
         ctx.lineTo(d.x, d.y);
-        ctx.strokeStyle = '#D4AF37';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 20]);
-        ctx.lineDashOffset = -time * 20;
+        ctx.strokeStyle = '#D4AF37'; // 100% opacity
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Dash animation
+        ctx.beginPath();
+        ctx.moveTo(o.x, o.y);
+        ctx.lineTo(d.x, d.y);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([10, 30]);
+        ctx.lineDashOffset = -time * 50;
         ctx.stroke();
         ctx.setLineDash([]);
 
-        const dist = Math.sqrt(Math.pow(o.x - d.x, 2) + Math.pow(o.y - d.y, 2)) * 12;
+        const dist = Math.sqrt(Math.pow(o.x - d.x, 2) + Math.pow(o.y - d.y, 2)) * 4;
         const distEl = document.getElementById('distance-display');
         if (distEl) distEl.innerText = `${Math.round(dist).toLocaleString()} km`;
     }
