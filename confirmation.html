@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>確認訂單 - 夯實航空</title>
+    <link rel="stylesheet" href="./output.css" />
+</head>
+
+<body class="bg-space-grey">
+    <div id="confirmation-app" class="min-h-screen w-full">
+        <!-- Navigation -->
+        <nav class="fixed top-0 left-0 w-full z-50 px-6 py-4 flex justify-between items-center bg-space-grey/80 backdrop-blur-md border-b border-white/10"
+            id="main-nav">
+            <div class="text-white font-heading font-bold text-xl tracking-widest">夯實航空</div>
+            <div class="hidden md:flex space-x-8">
+                <a href="index.html"
+                    class="text-aurora-white hover:text-tech-gold transition-colors text-sm uppercase tracking-wider">首頁</a>
+                <a href="booking.html"
+                    class="text-aurora-white hover:text-tech-gold transition-colors text-sm uppercase tracking-wider">返回預訂</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-6 py-32">
+            <div class="max-w-4xl mx-auto">
+                <!-- Header -->
+                <div class="text-center mb-12">
+                    <h1 class="text-4xl md:text-5xl text-white font-heading font-bold mb-4">確認您的航程</h1>
+                    <p class="text-gray-400">請仔細核對以下資訊，確認無誤後即可完成付款</p>
+                </div>
+
+                <!-- Boarding Pass Style Ticket -->
+                <div class="ticket-container relative mb-8">
+                    <!-- Main Ticket -->
+                    <div class="ticket-main glass-card rounded-3xl p-8 md:p-12 relative overflow-hidden">
+                        <!-- Background Pattern -->
+                        <div class="absolute inset-0 opacity-5">
+                            <div class="absolute top-0 right-0 w-64 h-64 bg-tech-gold rounded-full blur-3xl"></div>
+                            <div class="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-3xl"></div>
+                        </div>
+
+                        <!-- Ticket Header -->
+                        <div class="relative z-10 border-b border-white/10 pb-6 mb-6">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="text-tech-gold text-xs uppercase tracking-widest mb-2">Hangshi Airlines
+                                    </div>
+                                    <h2 class="text-2xl md:text-3xl text-white font-bold">電子登機證</h2>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-400 mb-1">訂單編號</div>
+                                    <div class="text-white font-mono text-lg" id="booking-ref">HS-XXXX-XXXX</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Flight Route -->
+                        <div class="relative z-10 mb-8">
+                            <div class="grid grid-cols-3 gap-4 items-center">
+                                <!-- Origin -->
+                                <div class="text-center">
+                                    <div class="text-5xl md:text-6xl text-white font-black mb-2" id="origin-code">TPE
+                                    </div>
+                                    <div class="text-sm text-gray-400" id="origin-name">台北桃園</div>
+                                    <div class="text-xs text-gray-500 mt-1" id="departure-time">--:--</div>
+                                </div>
+
+                                <!-- Flight Path -->
+                                <div class="flex flex-col items-center">
+                                    <div class="text-tech-gold text-xs mb-2">✈️</div>
+                                    <div
+                                        class="w-full h-px bg-gradient-to-r from-transparent via-tech-gold to-transparent">
+                                    </div>
+                                    <div class="text-xs text-gray-400 mt-2" id="flight-duration">-- 小時 -- 分鐘</div>
+                                </div>
+
+                                <!-- Destination -->
+                                <div class="text-center">
+                                    <div class="text-5xl md:text-6xl text-white font-black mb-2" id="dest-code">NRT
+                                    </div>
+                                    <div class="text-sm text-gray-400" id="dest-name">東京成田</div>
+                                    <div class="text-xs text-gray-500 mt-1" id="arrival-time">--:--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Passenger & Cabin Info -->
+                        <div class="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">乘客人數</div>
+                                <div class="text-white font-bold text-lg" id="passenger-count">1</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">艙等</div>
+                                <div class="text-white font-bold text-lg" id="cabin-class">標準坐票</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">座位 / 區域</div>
+                                <div class="text-tech-gold font-black text-xl" id="seat-assignment">--</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">預估飛行時間</div>
+                                <div class="text-white font-bold text-lg" id="est-flight-time">3h 30m</div>
+                            </div>
+                        </div>
+
+                        <!-- Add-ons Section -->
+                        <div class="relative z-10 border-t border-white/10 pt-6 mb-6" id="addons-section">
+                            <h3 class="text-white font-bold mb-4 flex items-center">
+                                <span class="text-tech-gold mr-2">+</span> 加購服務
+                            </h3>
+                            <div id="addons-list" class="space-y-2">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </div>
+
+                        <!-- Price Breakdown & QR -->
+                        <div class="relative z-10 border-t border-white/10 pt-6 flex flex-col md:flex-row gap-8">
+                            <div class="flex-grow">
+                                <h3 class="text-white font-bold mb-4">費用明細</h3>
+                                <div class="space-y-3" id="price-breakdown">
+                                    <!-- Dynamically populated -->
+                                </div>
+                                <div class="border-t border-tech-gold/30 mt-4 pt-4">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xl text-white font-bold">總計</span>
+                                        <span class="text-3xl text-tech-gold font-black" id="total-amount">NT$ 0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex-none flex flex-col items-center justify-center p-4 bg-white rounded-xl">
+                                <img id="ticket-qr" src="" alt="Boarding QR"
+                                    class="w-32 h-32 object-contain mix-blend-multiply opacity-90">
+                                <div
+                                    class="text-black text-[10px] font-mono mt-2 font-bold uppercase tracking-widest text-center">
+                                    Scan to Board</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Perforated Edge Effect -->
+                    <div class="ticket-perforation"></div>
+                </div>
+
+                <!-- Payment Button -->
+                <div class="text-center">
+                    <button id="confirm-payment-btn"
+                        class="magnetic-btn group relative inline-block px-16 py-6 bg-tech-gold text-space-grey font-bold text-lg uppercase tracking-widest overflow-hidden transition-all hover:shadow-[0_0_40px_rgba(212,175,55,0.4)] rounded-xl">
+                        <span class="relative z-10">確認付款 💳</span>
+                    </button>
+                    <p class="text-gray-500 text-sm mt-4">點擊後將跳轉至安全付款頁面</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const dataRaw = sessionStorage.getItem('bookingData');
+            if (!dataRaw) return;
+            try {
+                const booking = JSON.parse(dataRaw);
+                const setText = (id, text) => {
+                    const el = document.getElementById(id);
+                    if (el && text) el.textContent = text;
+                };
+
+                setText('origin-code', booking.origin);
+                setText('dest-code', booking.destination);
+                setText('origin-name', booking.originName);
+                setText('dest-name', booking.destName);
+                setText('passenger-count', booking.passengerCount);
+                if (booking.duration) setText('flight-duration', booking.duration);
+
+                const cabinMap = { 'seat': '標準坐票', 'comfort-stand': '舒適站票', 'hangshi-stand': '夯實站票' };
+                setText('cabin-class', cabinMap[booking.cabin] || booking.cabin);
+
+                const seats = (booking.selectedSeats && booking.selectedSeats.length)
+                    ? booking.selectedSeats.join(', ')
+                    : (booking.cabin === 'hangshi-stand' ? '體積計費區' : '未指定');
+                setText('seat-assignment', seats);
+
+                if (booking.totalAmount) {
+                    setText('total-amount', `NT$ ${parseInt(booking.totalAmount).toLocaleString()}`);
+                }
+
+                // QR Code
+                const qrImg = document.getElementById('ticket-qr');
+                if (qrImg) {
+                    const qrData = JSON.stringify({
+                        ref: document.getElementById('booking-ref')?.textContent || 'REF',
+                        flight: `${booking.origin}-${booking.destination}`,
+                        seats: seats
+                    });
+                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}&color=000000&bgcolor=ffffff`;
+                }
+
+            } catch (e) {
+                console.error("Booking load error", e);
+            }
+        });
+    </script>
+    <script type="module" src="./confirmation.js"></script>
+</body>
+
+</html>

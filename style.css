@@ -1,0 +1,252 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Montserrat:wght@700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+    --color-space-grey: #121212;
+    --color-tech-gold: #D4AF37;
+    --color-aurora-white: #F4F4F4;
+    --color-highlight-yellow: #e2ff00;
+
+    --font-sans: 'Inter', sans-serif;
+    --font-heading: 'Montserrat', sans-serif;
+    --font-chinese: 'Noto Sans TC', sans-serif;
+}
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-space-grey text-aurora-white font-chinese overflow-x-hidden;
+    }
+
+    input[type=range] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: rgba(255, 255, 255, 0.1);
+        height: 6px;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 18px;
+        width: 18px;
+        border-radius: 50%;
+        background: var(--color-tech-gold);
+        box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+        cursor: pointer;
+    }
+}
+
+@layer components {
+    .heading-text {
+        @apply font-heading uppercase tracking-tighter;
+    }
+}
+
+@layer utilities {
+
+    /* Dynamic Banner Elements */
+    .banner-mesh {
+        background-color: #121212;
+        background-image:
+            radial-gradient(at 0% 0%, rgba(212, 175, 55, 0.15) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(255, 255, 255, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(212, 175, 55, 0.1) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(0, 0, 0, 0.5) 0px, transparent 50%);
+    }
+
+    .glass-card {
+        @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    }
+
+    .noise-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.04;
+        pointer-events: none;
+    }
+
+    .ambient-dot {
+        position: absolute;
+        width: 40vw;
+        height: 40vw;
+        background: radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 70%);
+        border-radius: 50%;
+        filter: blur(80px);
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .perspective-1000 {
+        perspective: 1000px;
+    }
+
+    .addon-wheel {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        gap: 1rem;
+        padding: 1rem 0;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .addon-wheel::-webkit-scrollbar {
+        display: none;
+    }
+
+    .addon-card {
+        scroll-snap-align: center;
+        flex: 0 0 auto;
+        width: 120px;
+        height: 120px;
+        @apply bg-white/5 border border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300;
+    }
+
+    .addon-card.active {
+        @apply border-tech-gold bg-tech-gold/20 scale-105;
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+    }
+
+    .addon-card:hover:not(.active) {
+        @apply bg-white/10;
+    }
+
+    /* Infinite Marquee */
+    .marquee-container {
+        @apply w-full overflow-hidden py-4 flex items-center border-y-2 border-tech-gold;
+        background-color: #D4AF37;
+    }
+
+    .marquee-content {
+        @apply flex whitespace-nowrap items-center;
+        animation: marquee 30s linear infinite;
+    }
+
+    .marquee-item {
+        @apply flex items-center px-8 text-black font-black text-2xl md:text-3xl uppercase tracking-tighter;
+    }
+
+    .marquee-separator {
+        @apply text-black mx-4 text-xl;
+    }
+}
+
+@keyframes marquee {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+/* Ticket Styles */
+.ticket-container {
+    position: relative;
+}
+
+.ticket-perforation {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 16px;
+    background-image: radial-gradient(circle, transparent 40%, #121212 40%);
+    background-size: 16px 16px;
+    background-position: 0 0;
+    z-index: 5;
+}
+
+/* Seat Map Styles */
+#space-map,
+.map-container canvas {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.seat-section {
+    perspective: 1000px;
+}
+
+.seat-grid {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.seat-grid.cabin-standard {
+    grid-template-columns: repeat(5, 1fr);
+    /* 5 cols for 20 seats (4 rows) */
+}
+
+.seat-grid.cabin-standing {
+    grid-template-columns: repeat(11, 1fr);
+    /* 11 cols: 5 Stand - 1 Aisle - 5 Stand */
+    gap: 0.25rem;
+}
+
+.seat-item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.seat-item:hover:not(.taken):not(.selected) {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.seat-item.selected {
+    background: var(--color-tech-gold);
+    color: var(--color-space-grey);
+    border-color: var(--color-tech-gold);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+    transform: scale(1.05);
+}
+
+.seat-item.taken {
+    background: rgba(255, 50, 50, 0.1);
+    border-color: rgba(255, 50, 50, 0.2);
+    color: rgba(255, 50, 50, 0.4);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Specific styling for 'seat' vs 'standing' visual difference */
+.seat-item.type-seat::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    width: 60%;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
+}
+
+.seat-item.type-standing {
+    border-radius: 2px;
+    font-size: 0.6rem;
+}
