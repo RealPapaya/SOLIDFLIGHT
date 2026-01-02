@@ -33,18 +33,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let arrTime = '--:--';
     let flightId = 'HS-XXX';
 
-    if (bookingData.flightOut) {
-        depTime = bookingData.flightOut.dep;
-        arrTime = bookingData.flightOut.arr;
-        flightId = bookingData.flightOut.id;
+    if (bookingData.outbound && bookingData.outbound.flight) {
+        depTime = bookingData.outbound.flight.dep;
+        arrTime = bookingData.outbound.flight.arr;
+        flightId = bookingData.outbound.flight.id;
     } else {
-        // Fallback if no flight selected (shouldn't happen with new logic)
-        const now = new Date();
-        const departure = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-        departure.setHours(10, 0, 0, 0);
-        const arrival = new Date(departure.getTime() + durationHours * 60 * 60 * 1000);
-        depTime = departure.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-        arrTime = arrival.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+        // Fallback
+        depTime = '10:30';
+        arrTime = '14:55';
+        flightId = 'HS-801';
     }
 
     document.getElementById('departure-time').textContent = depTime;

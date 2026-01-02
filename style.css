@@ -39,6 +39,12 @@
         box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
         cursor: pointer;
     }
+
+    /* Fix dropdown option visibility */
+    select option {
+        background-color: var(--color-space-grey);
+        color: var(--color-aurora-white);
+    }
 }
 
 @layer components {
