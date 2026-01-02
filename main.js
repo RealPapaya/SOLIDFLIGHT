@@ -7,23 +7,23 @@ bgMap.src = 'world-map.png';
 // --- Data & Config ---
 const locations = {
     // Japan
-    nrt: { name: '東京成田 (NRT)', x: 730, y: 220, color: '#ffffff' },
-    hnd: { name: '東京羽田 (HND)', x: 725, y: 225, color: '#ffffff' },
-    kix: { name: '大阪關西 (KIX)', x: 710, y: 235, color: '#ffaaaa' },
-    osa: { name: '大阪伊丹 (ITM)', x: 708, y: 235, color: '#ffaaaa' },
-    fuk: { name: '福岡 (FUK)', x: 695, y: 245, color: '#ffbbbb' },
-    cts: { name: '札幌新千歲 (CTS)', x: 740, y: 180, color: '#eeeeff' },
-    oka: { name: '沖繩那霸 (OKA)', x: 690, y: 265, color: '#44aaff' },
+    nrt: { name: '東京成田 (NRT)', x: 720, y: 190, color: '#ffffff' },
+    hnd: { name: '東京羽田 (HND)', x: 715, y: 195, color: '#ffffff' },
+    kix: { name: '大阪關西 (KIX)', x: 700, y: 205, color: '#ffaaaa' },
+    osa: { name: '大阪伊丹 (ITM)', x: 698, y: 205, color: '#ffaaaa' },
+    fuk: { name: '福岡 (FUK)', x: 685, y: 215, color: '#ffbbbb' },
+    cts: { name: '札幌新千歲 (CTS)', x: 730, y: 155, color: '#eeeeff' },
+    oka: { name: '沖繩那霸 (OKA)', x: 680, y: 235, color: '#44aaff' },
 
     // Taiwan
-    tpe: { name: '台北桃園 (TPE)', x: 675, y: 275, color: '#4a9eff' },
+    tpe: { name: '台北桃園 (TPE)', x: 655, y: 235, color: '#4a9eff' },
 
     // Korea
-    icn: { name: '首爾仁川 (ICN)', x: 685, y: 225, color: '#ff4444' },
+    icn: { name: '首爾仁川 (ICN)', x: 665, y: 195, color: '#ff4444' },
 
     // Long Haul
-    cdg: { name: '巴黎戴高樂 (CDG)', x: 410, y: 190, color: '#ff8800' },
-    jfk: { name: '紐約甘迺迪 (JFK)', x: 220, y: 210, color: '#ff6b4a' }
+    cdg: { name: '巴黎戴高樂 (CDG)', x: 395, y: 160, color: '#ff8800' },
+    jfk: { name: '紐約甘迺迪 (JFK)', x: 210, y: 175, color: '#ff6b4a' }
 };
 
 const prices = {
@@ -265,8 +265,37 @@ function initBookingPage() {
             tripType: bookingState.tripType,
             outbound: bookingState.outbound,
             inbound: bookingState.tripType === 'round-trip' ? bookingState.inbound : null,
-            addons: [] // Populated below
+            outbound: bookingState.outbound,
+            inbound: bookingState.tripType === 'round-trip' ? bookingState.inbound : null,
+            addons: [], // Populated below
+            passengerDetails: [] // New: Detailed passenger stats
         };
+
+        // Collect Passenger Details (Weight/Height/Gender/Luggage)
+        const collectPassengerStats = (phase) => {
+            if (!bookingState[phase].flight) return;
+            const container = document.getElementById(`passenger-details-container-${phase}`);
+            if (!container) return;
+
+            const pDivs = container.querySelectorAll('.p-5'); // Passenger blocks
+            pDivs.forEach((div, idx) => {
+                let stats = { phase, index: idx + 1 };
+                if (bookingState[phase].cabin === 'hangshi-stand') {
+                    stats.type = 'stand';
+                    stats.gender = div.querySelector('.p-vol-gender')?.value;
+                    stats.height = div.querySelector('.p-vol-h')?.value;
+                    stats.weight = div.querySelector('.p-vol-w')?.value;
+                    stats.luggage = div.querySelector('.p-vol-l')?.value;
+                } else {
+                    stats.type = 'seat';
+                    stats.weight = div.querySelector('.p-weight')?.value;
+                    stats.luggage = div.querySelector('.p-luggage')?.value;
+                }
+                finalData.passengerDetails.push(stats);
+            });
+        };
+        collectPassengerStats('outbound');
+        if (bookingState.tripType === 'round-trip') collectPassengerStats('inbound');
 
         // Collect Addons for Confirmation Page Display
         let collectedAddons = [];
@@ -978,7 +1007,7 @@ function updateInvoice() {
                 standLugCost += (parseInt(inp.value) || 0) * prices.weightRate_Luggage;
             });
             // Add to total
-            total += flightCost + volumeTotal + standLugCost;
+            total += volumeTotal + standLugCost;
             if (standLugCost > 0) detailsHTML += `<div class="flex justify-between pl-2 text-sm mb-1 text-gray-300"><span>行李費用</span><span>+ NT$ ${standLugCost.toLocaleString()}</span></div>`;
 
         } else {
@@ -1028,34 +1057,21 @@ function updateInvoice() {
             }
         });
 
-        if (weightTotal > 0 || addonsTotal > 0) {
+        if (addonsTotal > 0) {
             detailsHTML += `
-                <div class="space-y-1 pl-2 border-l border-white/10 ml-1">
+                <div class="flex justify-between pl-2 text-sm mb-1 text-gray-300 mt-2 pt-2 border-t border-white/5">
+                    <span>加購服務</span>
+                    <span>+ NT$ ${addonsTotal.toLocaleString()}</span>
+                </div>
+                <div class="text-[9px] text-gray-500 leading-tight pl-2">${addonItems.join(', ')}</div>
             `;
-
-            if (weightTotal > 0) {
-                detailsHTML += `
-                    <div class="flex justify-between text-gray-400">
-                        <span>體重/行李附加費</span>
-                        <span>+ NT$ ${weightTotal.toLocaleString()}</span>
-                    </div>`;
-            }
-
-            if (addonsTotal > 0) {
-                detailsHTML += `
-                    <div class="flex justify-between text-tech-gold">
-                        <span>加購項目 (${addonItems.length})</span>
-                        <span>+ NT$ ${addonsTotal.toLocaleString()}</span>
-                    </div>
-                     <div class="text-[9px] text-gray-500 leading-tight">${addonItems.join(', ')}</div>
-                `;
-            }
-
-            detailsHTML += `</div>`;
+            total += addonsTotal;
         }
 
+        // Add Base Flight Cost to Total
+        total += flightCost;
+
         detailsHTML += `</div>`;
-        total += flightCost + weightTotal + addonsTotal;
     };
 
     calcPhase('outbound');

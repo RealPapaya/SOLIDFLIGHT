@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cabinNames = {
         'seat': '標準坐票',
+        'standard': '標準坐票',
         'comfort-stand': '舒適站票',
         'hangshi-stand': '夯實站票'
     };
@@ -108,6 +109,52 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
     } else {
         if (addonsSection) addonsSection.style.display = 'none';
+    }
+
+    // NEW: Passenger Manifest (Detailed Stats)
+    if (bookingData.passengerDetails && bookingData.passengerDetails.length > 0) {
+        const manifestHTML = `
+            <div class="relative z-10 border-t border-white/10 pt-6 mb-6">
+                <h3 class="text-white font-bold mb-4 flex items-center">
+                    <span class="text-tech-gold mr-2">◈</span> 乘客詳細資料 (Manifest)
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${bookingData.passengerDetails.map((p, i) => {
+            let details = '';
+            if (p.type === 'stand') {
+                details = `
+                                <span class="bg-gray-800 text-xs px-2 py-0.5 rounded text-gray-300">夯實站票</span>
+                                <div class="mt-1 text-sm text-gray-400">
+                                    <span class="text-white">${p.gender === 'F' ? '女性' : '男性'}</span> | 
+                                    H: <span class="text-tech-gold">${p.height}cm</span> | 
+                                    W: <span class="text-tech-gold">${p.weight}kg</span>
+                                    ${p.luggage > 0 ? `| 🧳 ${p.luggage}kg` : ''}
+                                </div>
+                            `;
+            } else {
+                details = `
+                                <span class="bg-gray-800 text-xs px-2 py-0.5 rounded text-gray-300">標準配置</span>
+                                <div class="mt-1 text-sm text-gray-400">
+                                    W: <span class="text-tech-gold">${p.weight}kg</span> | 
+                                    Luggage: <span class="text-tech-gold">${p.luggage}kg</span>
+                                </div>
+                            `;
+            }
+            return `
+                            <div class="bg-white/5 p-3 rounded-lg border border-white/10">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Passenger ${i + 1} (${p.phase === 'outbound' ? '去程' : '回程'})</div>
+                                ${details}
+                            </div>
+                        `;
+        }).join('')}
+                </div>
+            </div>
+        `;
+
+        // Insert before Addons Section
+        if (addonsSection) {
+            addonsSection.insertAdjacentHTML('beforebegin', manifestHTML);
+        }
     }
 
     // Populate price breakdown
