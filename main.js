@@ -28,10 +28,14 @@ const locations = {
 
 const prices = {
     basePerKm: 2.5,
-    weightRate_Body: 100,
-    weightRate_Luggage: 150,
-    volumeRate: 50,
-    cabinMultipliers: { seat: 2.5, 'comfort-stand': 1.2, 'hangshi-stand': 0.6 },
+    weightRate_Body: 10, // per kg
+    weightRate_Luggage: 15, // per kg
+    volumeRate: 2, // per cm3 (approx) for Hangshi Stand
+    cabinMultipliers: {
+        seat: 2.5,
+        'comfort-stand': 1.2,
+        'hangshi-stand': 0.6 // Base factor, but mainly volume charged
+    },
     addons: {
         food: { 'none': { name: '不需餐點', price: 0 }, 'beef-noodle': { name: '夯實紅燒牛肉麵', price: 380 }, 'chicken-rice': { name: '夯實海南雞飯', price: 320 } },
         drink: { 'none': { name: '不需飲料', price: 0 }, 'water': { name: '夯實礦泉水', price: 50 }, 'tea': { name: '阿里山高山青茶', price: 120 } },
@@ -213,6 +217,7 @@ function initBookingPage() {
 
         const needed = bookingState.outbound.passengers;
         const current = bookingState.outbound.seats.length;
+        // Hangshi Stand does not require seat selection (volume based)
         if (bookingState.outbound.cabin !== 'hangshi-stand' && current !== needed) {
             return alert(`請為所有乘客 (${needed} 位) 完成選座`);
         }
@@ -318,21 +323,32 @@ function initBookingPage() {
 
         let weightCost = 0;
         let luggageCost = 0;
+        let volumeCost = 0;
 
-        // Iterate outbound passengers to get accurate weight costs
-        // Note: For simplicity, we are retrieving current values from DOM or state IF available, 
-        // but seeing as state only stores seats/flight, we might need to grab them from DOM
-        document.querySelectorAll('#passenger-details-container-outbound .p-weight').forEach(el => {
-            weightCost += (parseInt(el.value) - 60) * prices.weightRate_Body; // Assuming 60kg free
-        });
-        if (weightCost < 0) weightCost = 0;
+        // Iterate outbound passengers to get accurate weight/volume costs
+        const outboundPassengerDetails = document.querySelectorAll('#passenger-details-container-outbound > div');
+        outboundPassengerDetails.forEach(passengerDiv => {
+            if (bookingState.outbound.cabin === 'hangshi-stand') {
+                const w = parseInt(passengerDiv.querySelector('.p-vol-w')?.value || "60"); // Weight
+                const h = parseInt(passengerDiv.querySelector('.p-vol-h')?.value || "170"); // Height
+                const g = passengerDiv.querySelector('.p-vol-gender')?.value || "M"; // Gender
+                const l = parseInt(passengerDiv.querySelector('.p-vol-l')?.value || "0"); // Luggage
 
-        document.querySelectorAll('#passenger-details-container-outbound .p-luggage').forEach(el => {
-            luggageCost += parseInt(el.value) * prices.weightRate_Luggage;
+                // Formula: (Weight * 12 + Height * 5) * (Female ? 1.1 : 1.0)
+                let baseVol = (w * 12) + (h * 5);
+                if (g === 'F') baseVol *= 1.1;
+
+                volumeCost += Math.round(baseVol * 4); // x4 scaling
+                luggageCost += l * prices.weightRate_Luggage; // Add luggage cost
+            } else {
+                weightCost += (parseInt(passengerDiv.querySelector('.p-weight')?.value || "0") - 60) * prices.weightRate_Body; // Assuming 60kg free
+                luggageCost += parseInt(passengerDiv.querySelector('.p-luggage')?.value || "0") * prices.weightRate_Luggage;
+            }
         });
+        if (weightCost < 0) weightCost = 0; // Ensure weight cost doesn't go negative
 
         const addonsCost = collectedAddons.reduce((sum, item) => sum + item.price, 0);
-        const subtotal = basePrice + weightCost + luggageCost + addonsCost;
+        const subtotal = basePrice + weightCost + luggageCost + volumeCost + addonsCost;
         const tax = Math.round(subtotal * 0.05);
 
         // Also add breakdown for confirmation page
@@ -340,6 +356,7 @@ function initBookingPage() {
             baseFare: Math.round(basePrice),
             passengerWeight: Math.round(weightCost),
             luggageWeight: Math.round(luggageCost),
+            volumeCost: Math.round(volumeCost),
             addonsCost: addonsCost,
             tax: tax,
             refundFee: 3000 // Fixed fee
@@ -426,19 +443,31 @@ function renderFlights(type, origin, dest, date) {
     if (!list) return;
     list.innerHTML = '';
 
+    // Calculate base distance for price
+    const locO = locations[origin] || locations['tpe'];
+    const locD = locations[dest] || locations['nrt'];
+    const dist = Math.sqrt(Math.pow(locO.x - locD.x, 2) + Math.pow(locO.y - locD.y, 2)) * 4;
+
     const flights = [
-        { id: type === 'outbound' ? 'HS801' : 'HS901', dep: '09:30', arr: '13:55' },
-        { id: type === 'outbound' ? 'HS803' : 'HS903', dep: '14:40', arr: '19:05' },
-        { id: type === 'outbound' ? 'HS805' : 'HS905', dep: '20:20', arr: '23:45' }
+        { id: type === 'outbound' ? 'HS801' : 'HS901', dep: '09:30', arr: '13:55', factor: 1.0 },
+        { id: type === 'outbound' ? 'HS803' : 'HS903', dep: '14:40', arr: '19:05', factor: 1.2 },
+        { id: type === 'outbound' ? 'HS805' : 'HS905', dep: '20:20', arr: '23:45', factor: 0.9 }
     ];
 
     flights.forEach(f => {
+        // Dynamic price calculation: Base * Distance * Factor + Random Fluctuation
+        const basePrice = Math.round(dist * prices.basePerKm * f.factor);
+        // Add some "floating" randomness +/- 500
+        const randomVar = Math.floor(Math.random() * 10) * 50;
+        const finalPrice = basePrice + randomVar;
+        f.price = finalPrice; // Store for invoice
+
         const isSelected = bookingState[type].flight?.id === f.id;
         const div = document.createElement('div');
         div.className = `p-4 border rounded-xl cursor-pointer flex justify-between items-center transition-all ${isSelected ? 'border-tech-gold bg-tech-gold/10' : 'border-white/10 hover:bg-white/5'}`;
         div.innerHTML = `
             <div><div class="text-xl font-bold text-white">${f.dep} - ${f.arr}</div><div class="text-xs text-gray-500">${f.id}</div></div>
-            <div class="text-tech-gold font-bold">TWD 12,500</div>
+            <div class="text-tech-gold font-bold">TWD ${finalPrice.toLocaleString()}</div>
         `;
         div.onclick = () => {
             console.log(`[Flow] ${type} flight clicked:`, f.id);
@@ -462,26 +491,79 @@ function renderPhaseDetails(phase) {
     for (let i = 1; i <= count; i++) {
         const div = document.createElement('div');
         div.className = 'p-5 border border-white/10 rounded-xl mb-4 bg-white/5 backdrop-blur-sm';
+        let inputsHtml = '';
+
+        if (bookingState[phase].cabin === 'hangshi-stand') {
+            inputsHtml = `
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">
+                        <span>人體體積估算 (Body Volume Est.)</span>
+                        <span class="text-tech-gold font-mono text-xs"><span class="vol-total-disp">--</span> units</span>
+                    </div>
+                    
+                    <!-- Gender -->
+                    <div class="space-y-1">
+                        <label class="text-[9px] text-gray-400 block">生理性別 (Gender)</label>
+                        <select class="p-vol-gender w-full bg-black/40 border border-white/10 text-white text-[10px] p-2 rounded focus:border-tech-gold appearance-none">
+                            <option value="M">男性 (Male)</option>
+                            <option value="F">女性 (Female - Volume +10%)</option>
+                        </select>
+                    </div>
+
+                    <!-- Height -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-[10px] text-gray-500">
+                            <span>身高 (Height)</span>
+                            <span class="text-tech-gold font-mono text-xs"><span class="h-vol-val">170</span> cm</span>
+                        </div>
+                        <input type="range" min="140" max="210" value="170" class="w-full p-vol-h accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
+                    </div>
+
+                    <!-- Weight -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-[10px] text-gray-500">
+                            <span>體重 (Weight)</span>
+                            <span class="text-tech-gold font-mono text-xs"><span class="w-vol-val">60</span> kg</span>
+                        </div>
+                        <input type="range" min="30" max="150" value="60" class="w-full p-vol-w accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
+                    </div>
+
+                    <!-- Luggage for Stand -->
+                    <div class="space-y-2 pt-2 border-t border-white/5">
+                        <div class="flex justify-between items-center text-[10px] text-gray-500">
+                            <span>行李 (Luggage)</span>
+                            <span class="text-tech-gold font-mono text-xs"><span class="l-vol-val">0</span> kg</span>
+                        </div>
+                        <input type="range" min="0" max="50" value="0" class="w-full p-vol-l accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
+                    </div>
+                </div>
+            `;
+        } else {
+            inputsHtml = `
+                <div class="space-y-6">
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+                            <span>體重 (Weight)</span>
+                            <span class="text-tech-gold font-mono text-xs"><span class="w-val">70</span> KG</span>
+                        </div>
+                        <input type="range" min="30" max="150" value="70" class="w-full p-weight accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+                            <span>行李 (Luggage)</span>
+                            <span class="text-tech-gold font-mono text-xs"><span class="l-val">10</span> KG</span>
+                        </div>
+                        <input type="range" min="0" max="50" value="10" class="w-full p-luggage accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
+                    </div>
+                </div>
+            `;
+        }
+
         div.innerHTML = `
             <div class="text-xs text-gray-400 mb-4 flex justify-between items-center">
                 <span class="font-bold uppercase tracking-widest text-[#D4AF37]">乘客 ${i} (${phase === 'outbound' ? '去程' : '回程'})</span>
             </div>
-            <div class="space-y-6">
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold">
-                        <span>體重 (Weight)</span>
-                        <span class="text-tech-gold font-mono text-xs"><span class="w-val">70</span> KG</span>
-                    </div>
-                    <input type="range" min="30" max="150" value="70" class="w-full p-weight accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
-                </div>
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-widest font-bold">
-                        <span>行李 (Luggage)</span>
-                        <span class="text-tech-gold font-mono text-xs"><span class="l-val">10</span> KG</span>
-                    </div>
-                    <input type="range" min="0" max="50" value="10" class="w-full p-luggage accent-tech-gold cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none">
-                </div>
-            </div>
+            ${inputsHtml}
             
             <!-- Add-ons Section (Hybrid) -->
             <div class="mt-4 pt-4 border-t border-white/10 space-y-4">
@@ -538,13 +620,45 @@ function renderPhaseDetails(phase) {
             </div>
         `;
 
-        const wInp = div.querySelector('.p-weight');
-        const lInp = div.querySelector('.p-luggage');
-        const wVal = div.querySelector('.w-val');
-        const lVal = div.querySelector('.l-val');
+        if (bookingState[phase].cabin === 'hangshi-stand') {
+            const wVol = div.querySelector('.p-vol-w'); // reusing as weight
+            const hVol = div.querySelector('.p-vol-h'); // height
+            const gVol = div.querySelector('.p-vol-gender'); // gender
+            const lVol = div.querySelector('.p-vol-l'); // luggage
 
-        wInp.oninput = () => { wVal.innerText = wInp.value; updateInvoice(); };
-        lInp.oninput = () => { lVal.innerText = lInp.value; updateInvoice(); };
+            const wTxt = div.querySelector('.w-vol-val');
+            const hTxt = div.querySelector('.h-vol-val');
+            const lTxt = div.querySelector('.l-vol-val');
+            const vTotal = div.querySelector('.vol-total-disp');
+
+            const upInv = () => {
+                wTxt.innerText = wVol.value;
+                hTxt.innerText = hVol.value;
+                lTxt.innerText = lVol.value;
+
+                // Real-time calculation display
+                let vol = (parseInt(wVol.value) * 12) + (parseInt(hVol.value) * 5);
+                if (gVol.value === 'F') vol *= 1.1;
+                vTotal.innerText = Math.round(vol);
+
+                updateInvoice();
+            };
+            wVol.oninput = upInv;
+            hVol.oninput = upInv;
+            lVol.oninput = upInv;
+            gVol.onchange = upInv;
+
+            // Trigger once for init
+            upInv();
+        } else {
+            const wInp = div.querySelector('.p-weight');
+            const lInp = div.querySelector('.p-luggage');
+            const wVal = div.querySelector('.w-val');
+            const lVal = div.querySelector('.l-val');
+
+            wInp.oninput = () => { wVal.innerText = wInp.value; updateInvoice(); };
+            lInp.oninput = () => { lVal.innerText = lInp.value; updateInvoice(); };
+        }
 
         // Bind Essentials Grid Logic
         const hiddenEssentials = div.querySelectorAll('.p-addon-essential');
@@ -823,17 +937,68 @@ function updateInvoice() {
         let weightTotal = 0;
         let bodyTotal = 0;
         let luggageTotal = 0;
+        let volumeTotal = 0;
 
-        // Weight Costs (Body + Luggage)
-        document.querySelectorAll(`#passenger-details-container-${phase} input.p-weight`).forEach(i => {
-            const w = parseInt(i.value) || 0;
-            bodyTotal += w * prices.weightRate_Body;
-        });
+        if (bookingState[phase].cabin === 'hangshi-stand') {
+            // Volume Calc based on W/H/Gender
+            const container = document.getElementById(`passenger-details-container-${phase}`);
+            if (container) {
+                const ws = container.querySelectorAll('.p-vol-w'); // Weight
+                const hs = container.querySelectorAll('.p-vol-h'); // Height
+                const gs = container.querySelectorAll('.p-vol-gender'); // Gender
 
-        document.querySelectorAll(`#passenger-details-container-${phase} input.p-luggage`).forEach(i => {
-            const w = parseInt(i.value) || 0;
-            luggageTotal += w * prices.weightRate_Luggage;
-        });
+                ws.forEach((_, i) => {
+                    const w = parseInt(ws[i].value) || 60;
+                    const h = parseInt(hs[i].value) || 170;
+                    const g = gs[i].value || 'M';
+
+                    let volUnits = (w * 12) + (h * 5);
+                    if (g === 'F') volUnits *= 1.1;
+
+                    volumeTotal += Math.round(volUnits * 4); // x4 Price Factor
+                });
+            }
+            detailsHTML += `
+                <div class="flex justify-between pl-2 text-sm mb-1 text-gray-300">
+                    <span>人體佔用費 (Body Volume)</span>
+                    <span>+ NT$ ${volumeTotal.toLocaleString()}</span>
+                </div>`;
+
+            // Luggage line for Stand (Luggage total is global variable modified in loop above for standard, but we need to ensure it includes Stand Luggage)
+            // Wait, luggageTotal is computed in the loop? 
+            // The loop at line 841 (original file) handles weight/luggage for standard.
+            // We need to add a loop for stand luggage or integrate it. 
+            // In the Interest of clean code, let's fix the logic flow in next step or assume the main loop handles it.
+            // Actually, in updateInvoice, calculating costs is split.
+            // Let's add the luggage cost for stand here explicitly simply for display or total calc if not captured.
+
+            const standLuggageInputs = document.querySelectorAll(`#passenger-details-container-${phase} input.p-vol-l`);
+            let standLugCost = 0;
+            standLuggageInputs.forEach(inp => {
+                standLugCost += (parseInt(inp.value) || 0) * prices.weightRate_Luggage;
+            });
+            // Add to total
+            total += flightCost + volumeTotal + standLugCost;
+            if (standLugCost > 0) detailsHTML += `<div class="flex justify-between pl-2 text-sm mb-1 text-gray-300"><span>行李費用</span><span>+ NT$ ${standLugCost.toLocaleString()}</span></div>`;
+
+        } else {
+            // Standard Weight Logic
+            // Weight Costs (Body + Luggage)
+            document.querySelectorAll(`#passenger-details-container-${phase} input.p-weight`).forEach(i => {
+                const w = parseInt(i.value) || 0;
+                bodyTotal += (Math.max(0, w - 60)) * prices.weightRate_Body; // 60kg allowance
+            });
+
+            document.querySelectorAll(`#passenger-details-container-${phase} input.p-luggage`).forEach(i => {
+                const w = parseInt(i.value) || 0;
+                luggageTotal += w * prices.weightRate_Luggage;
+            });
+
+            if (bodyTotal > 0) detailsHTML += `<div class="flex justify-between pl-2 text-sm mb-1 text-gray-300"><span>超重費用</span><span>+ NT$ ${bodyTotal.toLocaleString()}</span></div>`;
+            if (luggageTotal > 0) detailsHTML += `<div class="flex justify-between pl-2 text-sm mb-1 text-gray-300"><span>行李費用</span><span>+ NT$ ${luggageTotal.toLocaleString()}</span></div>`;
+
+            total += bodyTotal + luggageTotal;
+        }
 
         weightTotal = bodyTotal + luggageTotal;
 

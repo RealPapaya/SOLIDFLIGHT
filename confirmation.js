@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const breakdownItems = [
         { label: '基本票價 (Base Fare)', value: breakdown.baseFare || 0 },
         { label: '乘客載重附加費 (Passenger Weight)', value: breakdown.passengerWeight || 0 },
+        { label: '人體體積費 (Body Volume Charge)', value: breakdown.volumeCost || 0 },
         { label: '行李託運附加費 (Luggage Weight)', value: breakdown.luggageWeight || 0 },
         { label: '加購服務總計 (Add-ons)', value: breakdown.addonsCost || 0 },
         { label: '稅金 (Tax 5%)', value: breakdown.tax || 0 },
